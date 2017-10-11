@@ -8,7 +8,7 @@ ssh_chroot_set_directory () {
 
 	# Copy the ld-linux file, according to the architecture
 	copy_ld-linux () {
-		test -e "$1" && sudo cp "$1" $chroot_dir/$2/
+		! test -e "$1" || sudo cp "$1" $chroot_dir/$2/
 	}
 	copy_ld-linux /lib/ld-linux.so.2 lib
 	copy_ld-linux /lib64/ld-linux-x86-64.so.2 lib64
@@ -36,6 +36,7 @@ ssh_chroot_copy_binary () {
 
 # Copy some usual binaries in the chroot
 ssh_chroot_standard_binaries () {
+	local chroot_dir="$1"
 	ssh_chroot_copy_binary bash "$chroot_dir"
 	ssh_chroot_copy_binary cat "$chroot_dir"
 	ssh_chroot_copy_binary cp "$chroot_dir"
@@ -70,7 +71,8 @@ ssh_chroot_add_chroot_config () {
 	Match User $user\t# Automatically added for the user $user
 	ChrootDirectory $chroot_dir\t# Automatically added for the user $user
 	AllowTcpForwarding no\t# Automatically added for the user $user
-	X11Forwarding no\t# Automatically added for the user $user" | sudo tee -a /etc/ssh/sshd_config
+	X11Forwarding no\t# Automatically added for the user $user
+	AuthorizedKeysFile $chroot_dir/.ssh/authorized_keys\t# Automatically added for the user $user" | sudo tee -a /etc/ssh/sshd_config
 
 	# Reload ssh service
 	sudo systemctl reload ssh
