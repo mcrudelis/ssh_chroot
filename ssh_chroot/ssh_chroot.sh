@@ -72,7 +72,7 @@ ssh_chroot_add_chroot_config () {
 	ChrootDirectory \"$chroot_dir\"\t# Automatically added for the user $user
 	AllowTcpForwarding no\t# Automatically added for the user $user
 	X11Forwarding no\t# Automatically added for the user $user
-	AuthorizedKeysFile \"$chroot_dir/.ssh/authorized_keys\"\t# Automatically added for the user $user" | sudo tee -a /etc/ssh/sshd_config
+	AuthorizedKeysFile \"$chroot_dir/.ssh/authorized_keys\"\t# Automatically added for the user $user" | sudo tee -a /etc/ssh/sshd_config > /dev/null
 
 	# Reload ssh service
 	sudo systemctl reload ssh
