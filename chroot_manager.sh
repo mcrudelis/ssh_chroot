@@ -343,6 +343,12 @@ add_user () {
 	fi
 
 	#=================================================
+	# SET LOWER PRIORITY
+	#=================================================
+
+	ssh_chroot_set_priority $user_name
+
+	#=================================================
 	# ADD A PASSWORD FOR THIS USER
 	#=================================================
 
@@ -459,6 +465,13 @@ remove_user () {
 
 		bold_echo "Delete the user $user_name."
 		sudo userdel $user_name
+
+		#=================================================
+		# REMOVE PRIORITY
+		#=================================================
+
+		ssh_chroot_del_priority $user_name
+
 	done
 }
 

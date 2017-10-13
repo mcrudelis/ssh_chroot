@@ -50,7 +50,6 @@ ssh_chroot_standard_binaries () {
 	ssh_chroot_copy_binary /usr/lib/openssh/sftp-server "$chroot_dir"
 }
 
-
 # Set permissions
 ssh_chroot_set_permissions () {
 	local chroot_dir="$1"
@@ -76,4 +75,18 @@ ssh_chroot_add_chroot_config () {
 
 	# Reload ssh service
 	sudo systemctl reload ssh
+}
+
+# Set lower priority
+ssh_chroot_set_priority () {
+	local user="$1"
+	# Set a priority at 10 for this user.
+	# That means, each process started by this user will be less prioritize than all process with a 'nice' under 10.
+	echo "${user} hard priority 10" | sudo tee /etc/security/limits.d/${user}.conf > /dev/null
+}
+
+# Remove priority
+ssh_chroot_del_priority () {
+	local user="$1"
+	sudo rm -f /etc/security/limits.d/${user}.conf
 }
