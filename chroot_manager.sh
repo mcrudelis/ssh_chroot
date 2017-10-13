@@ -12,20 +12,8 @@ script_dir="$(dirname $(realpath $0))"
 # IMPORT FUNCTIONS
 #=================================================
 
-check_and_source () {
-	local source_file="$1"
-	if [ -e "$source_file" ]
-	then
-		source "$source_file"
-	else
-		echo -e "\e[1mUnable to proceed, the script $source_file is missing."
-		echo "Please clone this repository in the directory to go further."
-		
-		echo -e "$ git clone https://github.com/maniackcrudelis/$(basename $(dirname "$source_file")) $(dirname "$source_file")\n\e[0m"
-	fi
-}
-check_and_source "$script_dir/ssh_chroot/ssh_chroot.sh"
-check_and_source "$script_dir/unix_quotas/unix_quotas.sh"
+source "$script_dir/ssh_chroot/ssh_chroot.sh"
+source "$script_dir/unix_quotas/unix_quotas.sh"
 
 #=================================================
 # GENERAL ECHOS
@@ -54,7 +42,6 @@ chroot_manager.sh
 
 \e[1m	-n, --name NAME\e[0m
 		Username of the new user.
-		You can specify multiple user by simply separate them by a space. (user1 user2 user3 ...)
 \e[1m	-p, --password PASSWORD\e[0m
 		\e[4mOptional\e[0m. A password for this user.
 		You can specify a ssh key instead.
@@ -65,54 +52,73 @@ chroot_manager.sh
 		Directory where the user will be chrooted.
 \e[1m	-q, --quota QUOTA\e[0m
 		Maximum space available for this user.
+		Default Ko, Use M, G or T to specified another unit.
+\e[1m	-h, --help\e[0m
+		Show this help message and exit.
 
 \e[1m  * deluser\e[0m
 	Delete an user
 
-\e[1m	-n, --name NAME\e[0m
+\e[1m	-n, --name NAME1 [NAME2] [...]\e[0m
 		Username of the user to delete.
 		You can specify multiple user by simply separate them by a space. (user1 user2 user3 ...)
+		To select all the chrooted users, use ALL_USERS instead of any name.
 \e[1m	-z, --remove_dir\e[0m
 		\e[4mOptional\e[0m. Remove also the directory of this user.
+\e[1m	-h, --help\e[0m
+		Show this help message and exit.
 
 \e[1m  * purge\e[0m
 	Purge the directory of an user by removing all his data.
 	Do not remove the directory nor the user. Use 'deluser' to do that.
 
-\e[1m	-n, --name NAME\e[0m
+\e[1m	-n, --name NAME1 [NAME2] [...]\e[0m
 		Username of the user to purge.
+		You can specify multiple user by simply separate them by a space. (user1 user2 user3 ...)
+		To select all the chrooted users, use ALL_USERS instead of any name.
+\e[1m	-h, --help\e[0m
+		Show this help message and exit.
 
 \e[1m  * quota\e[0m
 	Modify, remove or print the quotas for specify users or all users.
 
-\e[1m	-n, --name NAME\e[0m
+\e[1m	-n, --name NAME1 [NAME2] [...]\e[0m
 		Username of the user.
 		You can specify multiple user by simply separate them by a space. (user1 user2 user3 ...)
+		To select all the chrooted users, use ALL_USERS instead of any name.
 \e[1m	-w, --watch_quota\e[0m
-		Print the quotas for the selected users.
+		\e[4mOptional\e[0m. Print the quotas for the selected users.
 \e[1m	-c, --change_quota NEW_QUOTA\e[0m
-		Modify the quotas for the selected users.
+		\e[4mOptional\e[0m. Modify the quotas for the selected users.
 		Default Ko, Use M, G or T to specified another unit.
 \e[1m	-r, --remove_quota\e[0m
-		Remove the quotas for the selected users.
+		\e[4mOptional\e[0m. Remove the quotas for the selected users.
 		Be careful, with this option, the selected users will not have any spaces restrictions anymore.
+\e[1m	-h, --help\e[0m
+		Show this help message and exit.
 
 \e[1m  * passwd\e[0m
+	Change the password for an user.
 
 \e[1m	-n, --name NAME\e[0m
 		Username of the new user.
 \e[1m	-p, --password PASSWORD\e[0m
 		New password for this user.
+\e[1m	-h, --help\e[0m
+		Show this help message and exit.
 
 \e[1m  * pubkey\e[0m
+	Change the ssh public key for an user.
 
 \e[1m	-n, --name NAME\e[0m
 		Username of the new user.
 \e[1m	-s, --sshkey SSH_KEY\e[0m
 		New public ssh key for this user.
+\e[1m	-h, --help\e[0m
+		Show this help message and exit.
 
 \e[1m  * help\e[0m
-	Show this help message and exit
+	Show this help message and exit.
 "
 
 	exit $exit_code
@@ -138,6 +144,7 @@ parse_cli_arguments () {
 			# For each argument in the array, reduce to short argument for getopts
 			arguments[$i]=${arguments[$i]//--change_quota/-c}
 			arguments[$i]=${arguments[$i]//--directory/-d}
+			arguments[$i]=${arguments[$i]//--help/-h}
 			arguments[$i]=${arguments[$i]//--name/-n}
 			arguments[$i]=${arguments[$i]//--password/-p}
 			arguments[$i]=${arguments[$i]//--quota/-q}
@@ -155,7 +162,7 @@ parse_cli_arguments () {
 				# Initialize the index of getopts
 				OPTIND=1
 				# Parse with getopts only if the argument begin by -
-				getopts ":c:d:n:p:q:s:rw" parameter
+				getopts ":c:d:n:p:q:s:hrwz" parameter || true
 				case $parameter in
 					c)
 						# --change_quota new_quota
@@ -166,6 +173,10 @@ parse_cli_arguments () {
 						# --directory directory_to_chroot_to
 						user_directory="$OPTARG"
 						shift_value=2
+						;;
+					h)
+						# --help
+						help_notice 0
 						;;
 					n)
 						# --name user_name1 user_name2 user_name3
@@ -219,7 +230,7 @@ parse_cli_arguments () {
 						shift_value=1
 						;;
 					\?)
-						error_echo "Invalid argument: -$OPTARG"
+						error_echo "Invalid argument: -${OPTARG:-}"
 						help_notice 1
 						;;
 					:)
@@ -235,6 +246,45 @@ parse_cli_arguments () {
 		# Call parse_arg and pass the modified list of args as a array of arguments.
 		parse_arg "${arguments[@]}"
 
+	fi
+}
+
+#=================================================
+# GLOBAL FUNCTIONS
+#=================================================
+
+# Get the chroot directory in the ssh config
+find_user_directory () {
+	user_directory=$(eval echo $(grep "^[^#].*ChrootDirectory.*$user_name" /etc/ssh/sshd_config | awk '{print $2}'))
+}
+
+# Check if this user exist
+is_user_exist () {
+	if ! getent passwd "$user_name" > /dev/null; then
+		error_echo "The user $user_name doesn't exist."
+		return 1
+	fi
+}
+
+# Check if this user is chrooted
+is_user_chrooted () {
+	if ! grep --quiet "^[^#].*Match User $user_name.*added for the user $user_name" /etc/ssh/sshd_config; then
+		error_echo "The user $user_name isn't in a chroot."
+		return 1
+	fi
+}
+
+# Check if the arguments asks for all users
+is_all_user () {
+	if echo "${users[@]}" | grep --quiet "ALL_USERS"
+	then
+		users=()	# Purge the array of users
+		local user
+		while read user
+		do
+			# Then add each users to the array
+			users+=("$user")
+		done <<< "$(grep "^[^#].*Match User.*added for the user.*" /etc/ssh/sshd_config | awk '{print $3}')"
 	fi
 }
 
@@ -260,7 +310,7 @@ add_user () {
 	parse_cli_arguments "$@"
 
 	# Check arguments
-	if [ -z $user_name ]; then
+	if [ -z "$users" ]; then
 		error_echo "An user name is required."
 		help_notice 1
 	fi
@@ -268,80 +318,77 @@ add_user () {
 		error_echo "An directory is required for this user."
 		help_notice 1
 	fi
-	if [ -z $user_password ] && [ -z $user_key ]; then
+	if [ -z "$user_password" ] && [ -z "$user_key" ]; then
 		error_echo "At least a password or a ssh key is required."
 		help_notice 1
 	fi
 
-	# Work on each specified user
-	for i in `seq 0 $(( ${#users[@]} -1 ))`
-	do
-		user_name=${users[$i]}
+	# Work on the first user only
+	user_name=${users[0]}
 
-		#=================================================
-		# CREATE THE USER
-		#=================================================
+	#=================================================
+	# CREATE THE USER
+	#=================================================
 
-		user_name=${user_name//[^[:alnum:].\-_]/_}
+	user_name=${user_name//[^[:alnum:].\-_]/_}
 
-		if ! getent passwd "$user_name" > /dev/null
-		then
-			echo "Create the user $user_name."
-			sudo useradd -d "/data" --system --user-group $user_name --shell /bin/bash
-			# The home directory for this user is /data, relative to its chroot directory, $user_dir
-		else
-			error_echo "The user $user_name already exist"
-			exit 1
-		fi
+	if ! getent passwd "$user_name" > /dev/null
+	then
+		bold_echo "Create the user $user_name."
+		sudo useradd -d "/data" --system --user-group $user_name --shell /bin/bash
+		# The home directory for this user is /data, relative to its chroot directory, $user_dir
+	else
+		error_echo "The user $user_name already exist"
+		exit 1
+	fi
 
-		#=================================================
-		# ADD A PASSWORD FOR THIS USER
-		#=================================================
+	#=================================================
+	# ADD A PASSWORD FOR THIS USER
+	#=================================================
 
-		if [ -n "$user_password" ]
-		then
-			echo $user_name:$user_password | sudo chpasswd
-		fi
+	if [ -n "$user_password" ]
+	then
+		echo $user_name:$user_password | sudo chpasswd
+	fi
 
-		#=================================================
-		# ADD THE SSH PUBLIC KEY
-		#=================================================
+	#=================================================
+	# ADD THE SSH PUBLIC KEY
+	#=================================================
 
-		if [ -n "$user_key" ]
-		then
-			sudo mkdir -p "$user_directory/.ssh"
-			# Secure the ssh key
-			echo -n "no-port-forwarding,no-X11-forwarding,no-agent-forwarding " >> "$user_directory/.ssh/authorized_keys"
-			# Then add the key
-			echo "$user_key" >> "$user_directory/.ssh/authorized_keys"
-		fi
+	if [ -n "$user_key" ]
+	then
+		sudo mkdir -p "$user_directory/.ssh"
+		# Secure the ssh key
+		echo -n "no-port-forwarding,no-X11-forwarding,no-agent-forwarding " | sudo tee -a "$user_directory/.ssh/authorized_keys" > /dev/null
+		# Then add the key
+		echo "$user_key" | sudo tee -a "$user_directory/.ssh/authorized_keys" > /dev/null
+	fi
 
-		#=================================================
-		# SET THE QUOTA FOR THIS USER
-		#=================================================
+	#=================================================
+	# SET THE QUOTA FOR THIS USER
+	#=================================================
 
-		if [ -n "$user_quota" ]
-		then
-			quotas_set_for_user $user_name "$user_directory" $user_quota
-		fi
+	if [ -n "$user_quota" ]
+	then
+		quotas_set_for_user $user_name "$user_directory" $user_quota
+	fi
 
-		#=================================================
-		# SET THE CHROOT DIRECTORY
-		#=================================================
+	#=================================================
+	# SET THE CHROOT DIRECTORY
+	#=================================================
 
-		# Build the chroot
-		ssh_chroot_set_directory "$user_directory"
+	# Build the chroot
+	ssh_chroot_set_directory "$user_directory"
 
-		# Copy some binaries in the chroot
-		ssh_chroot_standard_binaries "$user_directory"
-		ssh_chroot_copy_binary rsync "$user_directory"
+	# Copy some binaries in the chroot
+	ssh_chroot_standard_binaries "$user_directory"
+	ssh_chroot_copy_binary rsync "$user_directory"
 
-		# Set permissions
-		ssh_chroot_set_permissions "$user_directory" $user_name
+	# Set permissions
+	ssh_chroot_set_permissions "$user_directory" $user_name
 
-		# Set the chroot in the ssh config
-		ssh_chroot_add_chroot_config "$user_directory" $user_name
-	done
+	# Set the chroot in the ssh config
+	ssh_chroot_add_chroot_config "$user_directory" $user_name
 }
 
 
@@ -365,15 +412,21 @@ remove_user () {
 	parse_cli_arguments "$@"
 
 	# Check arguments
-	if [ -z $user_name ]; then
+	if [ -z "$users" ]; then
 		error_echo "An user name is required."
 		help_notice 1
 	fi
+
+	# Check if the arguments asks for all users
+	is_all_user
 
 	# Work on each specified user
 	for i in `seq 0 $(( ${#users[@]} -1 ))`
 	do
 		user_name=${users[$i]}
+
+		is_user_exist || continue
+		is_user_chrooted || continue
 
 		#=================================================
 		# REMOVE USER DIR
@@ -382,11 +435,12 @@ remove_user () {
 		if [ $deldir -eq 1 ]
 		then
 			# Get the chroot directory in the ssh config
-			local user_directory=$(grep "^[^#].*ChrootDirectory.*$user_name" /etc/ssh/sshd_config | awk '{print $2}')
-			if [ -n $user_directory ]
+			local user_directory
+			find_user_directory
+			if [ -n "$user_directory" ]
 			then
-				echo "Remove the directory $user_directory for the user $user_name."
-				sudo rm --recursive --one-file-system --preserve-root "$user_directory"
+				bold_echo "Remove the directory $user_directory for the user $user_name."
+				sudo rm --force --recursive --one-file-system --preserve-root "$user_directory"
 			fi
 		fi
 
@@ -394,16 +448,16 @@ remove_user () {
 		# REMOVE SSH CHROOT CONFIG
 		#=================================================
 
-		sed -i "/# Automatically added for the user $user_name/d" /etc/ssh/sshd_config
+		sudo sed -i "/# Automatically added for the user $user_name/d" /etc/ssh/sshd_config
 
 		# Reload ssh service
-		systemctl reload ssh
+		sudo systemctl reload ssh
 		
 		#=================================================
 		# DELETE THE USER
 		#=================================================
 
-		echo "Delete the user $user_name."
+		bold_echo "Delete the user $user_name."
 		sudo userdel $user_name
 	done
 }
@@ -427,25 +481,32 @@ purge_dir_user () {
 	parse_cli_arguments "$@"
 
 	# Check arguments
-	if [ -z $user_name ]; then
+	if [ -z "$users" ]; then
 		error_echo "An user name is required."
 		help_notice 1
 	fi
+
+	# Check if the arguments asks for all users
+	is_all_user
 
 	# Work on each specified user
 	for i in `seq 0 $(( ${#users[@]} -1 ))`
 	do
 		user_name=${users[$i]}
 
+		is_user_exist || continue
+		is_user_chrooted || continue
+
 		#=================================================
 		# PURGE USER DIR
 		#=================================================
 
 		# Get the chroot directory in the ssh config
-		local user_directory=$(grep "^[^#].*ChrootDirectory.*$user_name" /etc/ssh/sshd_config | awk '{print $2}')
-		if [ -n $user_directory ]
+		local user_directory=""
+		find_user_directory
+		if [ -n "$user_directory" ]
 		then
-			echo "Purge the directory $user_directory for the user $user_name."
+			bold_echo "Purge the directory $user_directory for the user $user_name."
 			sudo rm --recursive --one-file-system --preserve-root "$user_directory/data"
 
 			sudo mkdir "$user_directory/data"
@@ -480,26 +541,21 @@ quota_check () {
 		# If there're no users name specified, do only a check
 		quota_check=1
 	fi
-	if [ -n $quota_change ] && [ $quota_remove -eq 1 ]; then
+	if [ -n "$quota_change" ] && [ $quota_remove -eq 1 ]; then
 		error_echo "You have to choose between --change_quota and --remove_quota."
 		help_notice 1
 	fi
+
+	# Check if the arguments asks for all users
+	is_all_user
 
 	# Work on each specified user
 	for i in `seq 0 $(( ${#users[@]} -1 ))`
 	do
 		user_name=${users[$i]}
 
-		#=================================================
-		# CHECK THE QUOTAS
-		#=================================================
-
-		if [ "$quota_check" -eq 1 ]
-		then
-			quotas_check_user $user_name
-			# If --watch_quota is specified, print only the quotas, nothing else.
-			continue
-		fi
+		is_user_exist || continue
+		is_user_chrooted || continue
 
 		#=================================================
 		# CHANGE THE QUOTAS
@@ -509,7 +565,8 @@ quota_check () {
 		then
 
 			# Get the chroot directory in the ssh config
-			local user_directory=$(grep "^[^#].*ChrootDirectory.*$user_name" /etc/ssh/sshd_config | awk '{print $2}')
+			local user_directory
+			find_user_directory
 
 			quotas_set_for_user $user_name "$user_directory" $quota_change
 		fi
@@ -522,10 +579,19 @@ quota_check () {
 		then
 
 			# Get the chroot directory in the ssh config
-			local user_directory=$(grep "^[^#].*ChrootDirectory.*$user_name" /etc/ssh/sshd_config | awk '{print $2}')
+			local user_directory
+			find_user_directory
 
 			quotas_set_for_user $user_name "$user_directory" 0
 		fi
+
+		#=================================================
+		# CHECK THE QUOTAS
+		#=================================================
+
+		quotas_check_user $user_name
+		# If --watch_quota is specified, print only the quotas, nothing else.
+		continue
 
 	done
 }
@@ -550,11 +616,11 @@ passwd_change () {
 	parse_cli_arguments "$@"
 
 	# Check arguments
-	if [ -z $user_name ]; then
+	if [ -z "$users" ]; then
 		error_echo "An user name is required."
 		help_notice 1
 	fi
-	if [ -z $user_password ]; then
+	if [ -z "$user_password" ]; then
 		error_echo "A password is required."
 		help_notice 1
 	fi
@@ -562,10 +628,14 @@ passwd_change () {
 	# Work on the first user only
 	user_name=${users[0]}
 
+	is_user_exist || exit 1
+	is_user_chrooted || exit 1
+
 	#=================================================
 	# CHANGE THE PASSWORD FOR THIS USER
 	#=================================================
 
+	bold_echo "Change password for user $user_name"
 	echo $user_name:$user_password | sudo chpasswd
 }
 
@@ -587,13 +657,13 @@ pubkey_change () {
 	local user_key=""
 
 	parse_cli_arguments "$@"
-
+	
 	# Check arguments
-	if [ -z $user_name ]; then
+	if [ -z "$users" ]; then
 		error_echo "An user name is required."
 		help_notice 1
 	fi
-	if [ -z $user_key ]; then
+	if [ -z "$user_key" ]; then
 		error_echo "A ssk key is required."
 		help_notice 1
 	fi
@@ -601,17 +671,25 @@ pubkey_change () {
 	# Work on the first user only
 	user_name=${users[0]}
 
+	is_user_exist || exit 1
+	is_user_chrooted || exit 1
+
 	#=================================================
 	# ADD THE SSH PUBLIC KEY
 	#=================================================
 
-	# Get the chroot directory in the ssh config
-	local user_directory=$(grep "^[^#].*ChrootDirectory.*$user_name" /etc/ssh/sshd_config | awk '{print $2}')
+	bold_echo "Change ssh public key for user $user_name"
 
+	# Get the chroot directory in the ssh config
+	local user_directory
+	find_user_directory
+
+	sudo mkdir -p "$user_directory/.ssh"
 	# Secure the ssh key
-	echo -n "no-port-forwarding,no-X11-forwarding,no-agent-forwarding " > "$user_directory/.ssh/authorized_keys"
+	echo -n "no-port-forwarding,no-X11-forwarding,no-agent-forwarding " | sudo tee "$user_directory/.ssh/authorized_keys" > /dev/null
 	# Then add the key
-	echo "$user_key" >> "$user_directory/.ssh/authorized_keys"
+	echo "$user_key" | sudo tee -a "$user_directory/.ssh/authorized_keys" > /dev/null
+	bold_echo "New ssh public key:\n\e[0m$user_key"
 }
 
 
@@ -654,7 +732,7 @@ case $command in
 		help_notice 0
 		;;
 	*)
-		echo "Invalid argument: $command" >&2
+		error_echo "Invalid argument: $command" >&2
 		help_notice 1
 		;;
 esac
