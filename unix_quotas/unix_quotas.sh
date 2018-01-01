@@ -20,7 +20,7 @@ quotas_find_mount_point () {
 	# Find a mount point in fstab
 	mount_point_finder () {
 		if mount | grep -q " on $1 "; then
-			quotas_mount_point=$(mount | grep " on $1 " | awk '{print $1}')
+			quotas_mount_point=$(findmnt "$1" --nofsroot --uniq --output source --noheadings --first-only)
 		fi
 	}
 
