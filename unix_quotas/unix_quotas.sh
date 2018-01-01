@@ -60,7 +60,7 @@ quotas_int_fstab_find_line () {
 		if [ -n "$1" ]
 		then
 			if grep -q "$1" /etc/fstab; then
-				fstab_line=$(grep -m1 "^[^#].*$1" /etc/fstab) || true
+				fstab_line=$(grep -m1 "^[^#]*$1" /etc/fstab) || true
 			fi
 		fi
 	}
