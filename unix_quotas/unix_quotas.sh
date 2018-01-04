@@ -20,7 +20,7 @@ quotas_find_mount_point () {
 	# Find a mount point in fstab
 	mount_point_finder () {
 		if mount | grep -q " on $1 "; then
-			quotas_mount_point=$(mount | grep " on $1 " | awk '{print $1}')
+			quotas_mount_point=$(findmnt "$1" --nofsroot --uniq --output source --noheadings --first-only)
 		fi
 	}
 
@@ -60,7 +60,7 @@ quotas_int_fstab_find_line () {
 		if [ -n "$1" ]
 		then
 			if grep -q "$1" /etc/fstab; then
-				fstab_line=$(grep -m1 "^[^#].*$1" /etc/fstab) || true
+				fstab_line=$(grep -m1 "^[^#]*$1" /etc/fstab) || true
 			fi
 		fi
 	}
