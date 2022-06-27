@@ -57,8 +57,7 @@ ssh_chroot_set_permissions () {
 
 	sudo chown root: -R "$chroot_dir"
 	sudo chown $user: -R "$chroot_dir/data"
-	# The parent directory shall be handled by root. It's necessary for chroot.
-# 	sudo chown root: "$chroot_dir"
+	sudo chmod 755 -R "$chroot_dir"
 }
 
 # Set the chroot in the ssh config for this user
